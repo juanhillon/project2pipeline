@@ -1,0 +1,79 @@
+---
+title: "Project 2 Analysis"
+author: "Juan Hillon"
+date: "12/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(kableExtra)
+library(ggplot2)
+#loads my_penguins data
+load("../Data/my_penguins.rda")
+#sources my_rf_cv
+source("../Code/my_rf_cv.R")
+```
+## Tutorial for `my_rf_cv`
+This function runs the dataset through a random-forest cross-validation. This function is set up to work with the `my_penguins` dataset. This version of `my_rf_cv` is set up to predict `body_mass_g` using covariates `bill_length_mm`, `bill_depth_mm`, and `flipper_length_mm`. The function returns the cross-validation mean squared error.
+
+To showcase this function, I will run this functions 30 times per each `k`. I will be using `k` values of 2, 5, and 10. I will then create boxplots to display the cross-validation errors, and create a table of the mean cross-validation error for each `k`, along with the standard deviations.  
+```{r, eval=TRUE}
+#initialize dataset and remove nas
+library(tidyr)
+data(my_penguins) 
+my_data <- drop_na(my_penguins)
+
+#create empty vectors to store cross validation errors
+cv_err_2 <- rep(NA, 30)
+cv_err_5 <- rep(NA, 30)
+cv_err_10 <- rep(NA, 30)
+
+#runs my_rf_cv 30 times per each k value
+for (i in 1:30) {
+  cv_err_2[i] <- my_rf_cv(2)
+  cv_err_5[i] <- my_rf_cv(5)
+  cv_err_10[i] <- my_rf_cv(10)
+}
+#creates datasets out of recorded errors
+error_data_2 <- data.frame(k = "2", error = cv_err_2)
+error_data_5 <- data.frame(k = "5", error = cv_err_5)
+error_data_10 <- data.frame(k = "10", error = cv_err_10)
+#for csv
+data_for_csv <- data.frame("2" = cv_err_2,
+                           "5" = cv_err_5,
+                           "10" = cv_err_10)
+#for plot
+plot_data <- rbind(error_data_2, error_data_5, error_data_10)
+#make boxplots
+cv_mses <- ggplot(data = plot_data, 
+                  aes(x = k, y = error, fill = k)) +
+                  geom_boxplot() +
+                  theme_bw() +
+                  labs(title = "Cross-Validation Mean Squared Error by k value", 
+                  x = "k", 
+                  y = "CV MSE") +
+                  theme(plot.title =
+                  element_text(hjust = 0.5))
+cv_mses
+#creates dataset for table
+error_stats <- data.frame("Mean CV MSE" =
+                            c(mean(cv_err_2), mean(cv_err_5), mean(cv_err_10)),
+                          "SD of CV MSE" = 
+                            c(sd(cv_err_2), sd(cv_err_5), sd(cv_err_10)),
+                          row.names = c(2,5,10))
+kable_styling(kable(error_stats))
+```
+The boxplots indicate that the cross-validation mean squared errors decrease as `k` increases, with the values varying less as `k` increases. The means and standard deviations confirm this, with both decreasing as `k` increases. Therefore, this indicates that the higher `k` is , `k` being the number of folds, the more accurate the random forest cross-validation is. This makes sense because when there are more folds, `randomForest()` is used to make predictions more. However, the trend shown in the graph and table seems to show diminishing returns for decreasing CV MSE as `k` increases.
+
+```{r}
+#saves plot
+ggsave(filename = "../Output/Figures/cv_mse_plot.pdf", plot = cv_mses)
+#saves table
+saveRDS(error_stats, file = "../Output/Results/summary_stats.rds")
+#writes csv of simulation results
+write.csv(data_for_csv, file = "../Output/Results/simulated_results.csv")
+```
